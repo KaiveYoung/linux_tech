@@ -38,48 +38,52 @@
         </div>
       </div>
       
-              <div class="presentation-container">
-          <div class="presentation-header">
-            <div class="presentation-controls">
-              <button @click="previousSlide" class="control-btn" :disabled="currentSlide === 0">
-                ← 上一页
-              </button>
-              <span class="slide-counter">{{ currentSlide + 1 }} / {{ slides.length }}</span>
-              <button @click="nextSlide" class="control-btn" :disabled="currentSlide === slides.length - 1">
-                下一页 →
-              </button>
-            </div>
-            <div class="presentation-actions">
-              <button @click="toggleFullscreen" class="action-btn">
-                {{ isFullscreen ? '退出全屏' : '全屏模式' }}
-              </button>
-              <button @click="togglePresentationMode" class="action-btn">
-                {{ isPresentationMode ? '退出演示' : '演示模式' }}
-              </button>
-            </div>
+      <div class="presentation-container">
+        <div class="presentation-header">
+          <div class="presentation-controls">
+            <button @click="previousSlide" class="control-btn" :disabled="currentSlide === 0">
+              ← 上一页
+            </button>
+            <span class="slide-counter">{{ currentSlide + 1 }} / {{ totalSlides }}</span>
+            <button @click="nextSlide" class="control-btn" :disabled="currentSlide === totalSlides - 1">
+              下一页 →
+            </button>
           </div>
-          
-          <div class="slide-container" :class="{ 'fullscreen': isFullscreen, 'presentation-mode': isPresentationMode }">
-            <div class="slide" v-html="slides[currentSlide]"></div>
-          </div>
-          
-          <div class="slide-navigation" v-show="!isFullscreen && !isPresentationMode">
-            <div class="slide-dots">
-              <span 
-                v-for="(slide, index) in slides" 
-                :key="index"
-                :class="['dot', { active: index === currentSlide }]"
-                @click="goToSlide(index)"
-              ></span>
-            </div>
+          <div class="presentation-actions">
+            <button @click="toggleFullscreen" class="action-btn">
+              {{ isFullscreen ? '退出全屏' : '全屏模式' }}
+            </button>
+            <button @click="togglePresentationMode" class="action-btn">
+              {{ isPresentationMode ? '退出演示' : '演示模式' }}
+            </button>
           </div>
         </div>
+        
+        <div class="slide-container" :class="{ 'fullscreen': isFullscreen, 'presentation-mode': isPresentationMode }">
+          <div id="reveal-presentation" ref="revealContainer"></div>
+        </div>
+        
+        <div class="slide-navigation" v-show="!isFullscreen && !isPresentationMode">
+          <div class="slide-dots">
+            <span 
+              v-for="index in totalSlides" 
+              :key="index"
+              :class="['dot', { active: index - 1 === currentSlide }]"
+              @click="goToSlide(index - 1)"
+            ></span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { getLessonById } from '@/utils/lessons'
+import Reveal from 'reveal.js'
+import 'reveal.js/dist/reveal.css'
+import 'reveal.js/dist/theme/white.css'
+import 'reveal.js/plugin/highlight/monokai.css'
 
 export default {
   name: 'Lesson',
@@ -96,8 +100,10 @@ export default {
       error: null,
       slides: [],
       currentSlide: 0,
+      totalSlides: 0,
       isFullscreen: false,
-      isPresentationMode: false
+      isPresentationMode: false,
+      deck: null
     }
   },
   async mounted() {
@@ -111,6 +117,10 @@ export default {
     document.removeEventListener('keydown', this.handleKeydown)
     // 恢复body样式
     document.body.style.overflow = ''
+    // 销毁reveal实例
+    if (this.deck) {
+      this.deck.destroy()
+    }
   },
   methods: {
     async loadLesson() {
@@ -188,6 +198,11 @@ export default {
       if (this.slides.length === 0) {
         this.generateDefaultContent()
       }
+      
+      // 初始化reveal.js
+      this.$nextTick(() => {
+        this.initReveal()
+      })
     },
     
     generateDefaultContent() {
@@ -198,23 +213,126 @@ export default {
         `<h2>课程信息</h2><p>预计学习时间：${this.lesson.duration}</p><p>难度等级：${this.lesson.difficulty}</p>`,
         `<h2>敬请期待</h2><p>详细的课程内容正在制作中，敬请期待！</p>`
       ]
+      
+      // 初始化reveal.js
+      this.$nextTick(() => {
+        this.initReveal()
+      })
+    },
+    
+    initReveal() {
+      if (this.deck) {
+        this.deck.destroy()
+      }
+      
+      // 创建reveal容器
+      const container = this.$refs.revealContainer
+      if (!container) return
+      
+      // 生成HTML内容
+      const slidesHtml = this.slides.map(slide => `<section>${slide}</section>`).join('')
+      container.innerHTML = slidesHtml
+      
+      // 初始化reveal.js
+      this.deck = new Reveal(container, {
+        embedded: true,
+        controls: false,
+        progress: false,
+        center: true,
+        hash: false,
+        transition: 'slide',
+        transitionSpeed: 'default',
+        backgroundTransition: 'fade',
+        viewDistance: 3,
+        mobileViewDistance: 2,
+        display: 'block',
+        hideInactiveCursor: true,
+        hideCursorTime: 5000,
+        previewLinks: false,
+        touch: true,
+        loop: false,
+        rtl: false,
+        navigationMode: 'default',
+        shuffle: false,
+        fragments: true,
+        fragmentInURL: false,
+        embedded: true,
+        help: false,
+        showNotes: false,
+        autoPlayMedia: null,
+        preloadIframes: null,
+        autoSlide: 0,
+        autoSlideStoppable: true,
+        autoSlideMethod: Reveal.navigateNext,
+        defaultTiming: null,
+        mouseWheel: false,
+        hideInactiveCursor: true,
+        hideCursorTime: 5000,
+        previewLinks: false,
+        postMessage: true,
+        postMessageEvents: false,
+        focusBodyOnPageVisibilityChange: true,
+        transition: 'slide',
+        transitionSpeed: 'default',
+        backgroundTransition: 'fade',
+        viewDistance: 3,
+        mobileViewDistance: 2,
+        display: 'block',
+        hideInactiveCursor: true,
+        hideCursorTime: 5000,
+        previewLinks: false,
+        touch: true,
+        loop: false,
+        rtl: false,
+        navigationMode: 'default',
+        shuffle: false,
+        fragments: true,
+        fragmentInURL: false,
+        embedded: true,
+        help: false,
+        showNotes: false,
+        autoPlayMedia: null,
+        preloadIframes: null,
+        autoSlide: 0,
+        autoSlideStoppable: true,
+        autoSlideMethod: Reveal.navigateNext,
+        defaultTiming: null,
+        mouseWheel: false,
+        hideInactiveCursor: true,
+        hideCursorTime: 5000,
+        previewLinks: false,
+        postMessage: true,
+        postMessageEvents: false,
+        focusBodyOnPageVisibilityChange: true
+      })
+      
+      // 初始化reveal
+      this.deck.initialize()
+      
+      // 设置总幻灯片数
+      this.totalSlides = this.slides.length
+      
+      // 监听幻灯片变化
+      this.deck.on('slidechanged', (event) => {
+        this.currentSlide = event.indexh
+      })
     },
     
     nextSlide() {
-      if (this.currentSlide < this.slides.length - 1) {
-        this.currentSlide++
+      if (this.deck && this.currentSlide < this.totalSlides - 1) {
+        this.deck.next()
       }
     },
     
     previousSlide() {
-      if (this.currentSlide > 0) {
-        this.currentSlide--
+      if (this.deck && this.currentSlide > 0) {
+        this.deck.prev()
       }
     },
     
     goToSlide(index) {
-      if (index >= 0 && index < this.slides.length) {
-        this.currentSlide = index
+      if (this.deck && index >= 0 && index < this.totalSlides) {
+        this.deck.slide(index)
       }
     },
     
